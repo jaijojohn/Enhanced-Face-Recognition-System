@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Enhanced Face Recognition System{% endblock %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="jumbotron bg-light p-5 rounded">
+            <h1 class="display-4">Enhanced Face Recognition System</h1>
+            <p class="lead">A web-based face recognition system with database storage and real-time recognition capabilities.</p>
+            <hr class="my-4">
+            <p>Choose one of the following options:</p>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Capture Face Samples</h5>
+                            <p class="card-text">Capture and store face samples for recognition. Add new people to the system.</p>
+                            <a href="/capture" class="btn btn-primary">Go to Capture</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Live Face Recognition</h5>
+                            <p class="card-text">Start live face recognition using your webcam to identify known faces.</p>
+                            <a href="/recognize" class="btn btn-success">Go to Recognition</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

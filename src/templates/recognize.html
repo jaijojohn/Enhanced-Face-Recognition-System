@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Live Recognition - Enhanced Face Recognition System{% endblock %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">Live Face Recognition</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <p>This page shows real-time face recognition using your webcam. The system will compare detected faces with the samples stored in the database.</p>
+                    <p><strong>Note:</strong> For best results, ensure good lighting and face the camera directly.</p>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="text-center">
+                            <img src="{{ url_for('video_feed') }}" width="100%" style="max-width: 640px; border-radius: 8px; border: 1px solid #ddd;">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="card-title mb-0">Recognition Guide</h5>
+                            </div>
+                            <div class="card-body">
+                                <h6>How It Works</h6>
+                                <p>The system uses a simplified face recognition approach:</p>
+                                <ol>
+                                    <li>Detects faces in the video stream</li>
+                                    <li>Compares each face with samples in the database</li>
+                                    <li>Identifies the closest match if similarity is above threshold</li>
+                                </ol>
+                                
+                                <h6 class="mt-3">Recognition Status</h6>
+                                <div class="d-flex align-items-center mb-2">
+                                    <div style="width: 20px; height: 20px; background-color: #00ff00; margin-right: 10px;"></div>
+                                    <span><strong>Green Box:</strong> Recognized face</span>
+                                </div>
+                                <div class="d-flex align-items-center mb-2">
+                                    <div style="width: 20px; height: 20px; background-color: #ff0000; margin-right: 10px;"></div>
+                                    <span><strong>Red Box:</strong> Unknown face</span>
+                                </div>
+                                
+                                <h6 class="mt-3">Similarity Score</h6>
+                                <p>The number shown next to a name is the similarity score (0-1):</p>
+                                <ul>
+                                    <li><strong>Above 0.7:</strong> Strong match</li>
+                                    <li><strong>0.5-0.7:</strong> Possible match</li>
+                                    <li><strong>Below 0.5:</strong> Not a match</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="card-title mb-0">Tips for Better Recognition</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Lighting</h6>
+                                            <p class="card-text">Ensure your face is well-lit from the front</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Position</h6>
+                                            <p class="card-text">Face the camera directly at eye level</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Samples</h6>
+                                            <p class="card-text">Add multiple samples per person for better accuracy</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

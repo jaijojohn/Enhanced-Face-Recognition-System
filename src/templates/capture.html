@@ -1,0 +1,1134 @@
+{% extends "base.html" %}
+
+{% block title %}Capture Faces - Enhanced Face Recognition System{% endblock %}
+
+{% block head %}
+<!-- Ensure Bootstrap Icons are loaded -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<style>
+    /* Sample container styles */
+    .sample-container {
+        position: relative;
+        display: inline-block;
+        margin: 5px;
+        border-radius: 4px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .sample-container:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sample-controls {
+        position: absolute;
+        top: 0;
+        right: 0;
+        display: flex;
+        padding: 5px;
+        background-color: rgba(0,0,0,0.5);
+        border-bottom-left-radius: 4px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .sample-container:hover .sample-controls {
+        opacity: 1;
+    }
+    
+    .sample-delete-btn {
+        padding: 2px 5px;
+        font-size: 12px;
+    }
+    
+    .captured-images {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .captured-image {
+        width: 120px;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 4px;
+    }
+    
+    /* Confirmation modal styles */
+    .modal-confirm {
+        color: #636363;
+    }
+    
+    .modal-confirm .modal-content {
+        padding: 20px;
+        border-radius: 5px;
+        border: none;
+    }
+    
+    .modal-confirm .modal-header {
+        border-bottom: none;
+        position: relative;
+    }
+    
+    .modal-confirm .modal-footer {
+        border-top: none;
+        padding: 10px 15px 20px;
+    }
+</style>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">Capture Face Samples</h5>
+            </div>
+            <div class="card-body">
+                <div id="personForm">
+                    <h5>Add New Person</h5>
+                    <div class="mb-3">
+                        <label for="personId" class="form-label">Person ID</label>
+                        <input type="text" class="form-control" id="personId" placeholder="e.g., 001">
+                    </div>
+                    <div class="mb-3">
+                        <label for="personName" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="personName" placeholder="e.g., John Doe">
+                    </div>
+                    <div class="mb-3">
+                        <label for="personDetails" class="form-label">Details</label>
+                        <input type="text" class="form-control" id="personDetails" placeholder="e.g., Employee">
+                    </div>
+                    <button id="addPersonBtn" class="btn btn-primary">Add Person</button>
+                </div>
+
+                <hr>
+
+                <div id="captureForm" class="mt-4">
+                    <h5>Capture Face Sample</h5>
+                    <div class="mb-3">
+                        <label for="selectPerson" class="form-label">Select Person</label>
+                        <div class="input-group">
+                            <select class="form-select" id="selectPerson">
+                                <option value="">-- Select a person --</option>
+                                <!-- Person options will be loaded via JavaScript -->
+                            </select>
+                            <button class="btn btn-outline-primary" type="button" id="quickEditPersonBtn" title="Edit Selected Person" disabled>
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabs for capture methods -->
+                    <ul class="nav nav-tabs mb-3" id="captureMethodTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="webcam-tab" data-bs-toggle="tab" data-bs-target="#webcam-content" 
+                                type="button" role="tab" aria-controls="webcam-content" aria-selected="true">Webcam</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-content" 
+                                type="button" role="tab" aria-controls="upload-content" aria-selected="false">Upload Photo</button>
+                        </li>
+                    </ul>
+                    
+                    <!-- Tab content -->
+                    <div class="tab-content" id="captureMethodContent">
+                        <!-- Webcam capture tab -->
+                        <div class="tab-pane fade show active" id="webcam-content" role="tabpanel" aria-labelledby="webcam-tab">
+                            <div class="video-container">
+                                <video id="video" autoplay></video>
+                                <canvas id="canvas" style="display: none;"></canvas>
+                            </div>
+                            <button id="captureBtn" class="btn btn-success btn-capture" disabled>Capture Face</button>
+                        </div>
+                        
+                        <!-- Upload photo tab -->
+                        <div class="tab-pane fade" id="upload-content" role="tabpanel" aria-labelledby="upload-tab">
+                            <div class="mb-3">
+                                <label for="photoUpload" class="form-label">Select a photo with a face</label>
+                                <input class="form-control" type="file" id="photoUpload" accept="image/*">
+                                <div class="form-text">Supported formats: JPG, PNG, JPEG</div>
+                            </div>
+                            <button id="uploadBtn" class="btn btn-primary" disabled>Upload Photo</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="statusAlert" class="alert alert-info mt-3" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0">Face Samples</h5>
+            </div>
+            <div class="card-body">
+                <div id="personInfo" class="mb-3" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 id="personName">Person Name</h6>
+                            <p id="personDetails" class="text-muted">Details</p>
+                            <p id="sampleCount" class="badge bg-primary">0 samples</p>
+                        </div>
+                        <div class="person-actions">
+                            <button id="editPersonBtn" class="btn btn-sm btn-primary me-1" title="Edit Person">
+                                <i class="bi bi-pencil-fill"></i> Edit
+                            </button>
+                            <button id="deletePersonBtn" class="btn btn-sm btn-danger" title="Delete Person">
+                                <i class="bi bi-trash-fill"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="capturedImages" class="captured-images">
+                    <p id="noSamples">No samples available. Select a person or capture new samples.</p>
+                </div>
+                
+                <div id="loadingIndicator" class="text-center" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Loading samples...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sample Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-confirm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteConfirmModalLabel">Confirm Delete Sample</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this face sample?</p>
+                <p class="text-warning"><small>This action cannot be undone.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Person Delete Confirmation Modal -->
+<div class="modal fade" id="deletePersonConfirmModal" tabindex="-1" aria-labelledby="deletePersonConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-confirm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deletePersonConfirmModalLabel">Confirm Delete Person</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deletePersonName"></strong>?</p>
+                <p class="text-danger"><strong>This will also delete all face samples associated with this person.</strong></p>
+                <p class="text-warning"><small>This action cannot be undone.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeletePersonBtn">Delete Person</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Person Modal -->
+<div class="modal fade" id="editPersonModal" tabindex="-1" aria-labelledby="editPersonModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editPersonModalLabel">Edit Person</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editPersonForm">
+                    <input type="hidden" id="editPersonId">
+                    <div class="mb-3">
+                        <label for="editPersonIdField" class="form-label">Person ID</label>
+                        <input type="text" class="form-control" id="editPersonIdField" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPersonNameField" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="editPersonNameField" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPersonDetailsField" class="form-label">Details</label>
+                        <input type="text" class="form-control" id="editPersonDetailsField">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="savePersonChangesBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // DOM elements
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const captureBtn = document.getElementById('captureBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const photoUpload = document.getElementById('photoUpload');
+    const selectPerson = document.getElementById('selectPerson');
+    const addPersonBtn = document.getElementById('addPersonBtn');
+    const personId = document.getElementById('personId');
+    const personName = document.getElementById('personName');
+    const personDetails = document.getElementById('personDetails');
+    const statusAlert = document.getElementById('statusAlert');
+    const capturedImages = document.getElementById('capturedImages');
+    const noSamples = document.getElementById('noSamples');
+
+    // Video constraints
+    const constraints = {
+        video: {
+            width: 640,
+            height: 480,
+            facingMode: 'user'
+        }
+    };
+
+    // Initialize webcam
+    async function initWebcam() {
+        try {
+            // Check if mediaDevices is supported
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('Browser does not support webcam access');
+            }
+            
+            // List available video devices
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            
+            console.log('Available video devices:', videoDevices);
+            
+            if (videoDevices.length === 0) {
+                throw new Error('No video devices found');
+            }
+            
+            // Try different camera configurations
+            let stream = null;
+            let errorMessage = '';
+            
+            // First try with user-facing camera
+            try {
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                showStatus('Webcam initialized successfully', 'success');
+                setTimeout(() => {
+                    statusAlert.style.display = 'none';
+                }, 3000);
+                return;
+            } catch (frontErr) {
+                console.log('Front camera failed:', frontErr);
+                errorMessage = frontErr.message;
+                
+                // Try environment-facing camera
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: 640,
+                            height: 480,
+                            facingMode: { exact: "environment" }
+                        }
+                    });
+                    video.srcObject = stream;
+                    showStatus('Using rear camera (front camera unavailable)', 'warning');
+                    setTimeout(() => {
+                        statusAlert.style.display = 'none';
+                    }, 3000);
+                    return;
+                } catch (rearErr) {
+                    console.log('Rear camera failed:', rearErr);
+                    errorMessage += '; ' + rearErr.message;
+                    
+                    // Try with specific device ID if available
+                    if (videoDevices.length > 0) {
+                        for (const device of videoDevices) {
+                            try {
+                                stream = await navigator.mediaDevices.getUserMedia({
+                                    video: { deviceId: { exact: device.deviceId } }
+                                });
+                                video.srcObject = stream;
+                                showStatus(`Using camera: ${device.label || 'Unknown camera'}`, 'success');
+                                setTimeout(() => {
+                                    statusAlert.style.display = 'none';
+                                }, 3000);
+                                return;
+                            } catch (deviceErr) {
+                                console.log(`Failed with device ${device.label}:`, deviceErr);
+                                errorMessage += '; ' + deviceErr.message;
+                            }
+                        }
+                    }
+                    
+                    // Final fallback - try with minimal constraints
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        video.srcObject = stream;
+                        showStatus('Using default camera settings', 'warning');
+                        setTimeout(() => {
+                            statusAlert.style.display = 'none';
+                        }, 3000);
+                        return;
+                    } catch (basicErr) {
+                        console.log('Basic camera access failed:', basicErr);
+                        errorMessage += '; ' + basicErr.message;
+                        throw new Error('Could not access any camera: ' + errorMessage);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Webcam access error:', err);
+            showStatus(`Error accessing webcam: ${err.message}. Please try the Upload Photo option instead.`, 'danger');
+            // Automatically switch to upload tab if webcam fails
+            document.getElementById('upload-tab').click();
+            
+            // Show webcam troubleshooting tips
+            const videoContainer = document.querySelector('.video-container');
+            if (videoContainer) {
+                videoContainer.innerHTML = `
+                    <div class="alert alert-warning">
+                        <h5>Webcam Access Failed</h5>
+                        <p>We couldn't access your camera. Please try these troubleshooting steps:</p>
+                        <ol>
+                            <li>Make sure your camera is connected and turned on</li>
+                            <li>Check that no other application is using your camera</li>
+                            <li>Verify that you've granted camera permissions to this website</li>
+                            <li>Try refreshing the page</li>
+                            <li>Use the "Upload Photo" option instead</li>
+                        </ol>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Immediately load the person list
+        console.log('Document ready - loading person list immediately');
+        // Initialize webcam
+        initWebcam();
+        // Load person list with a slight delay to ensure DOM is fully ready
+        setTimeout(async () => {
+            console.log('Loading person list after short delay');
+            await refreshPersonsList();
+        }, 500);
+    });
+
+    // Enable/disable capture buttons based on person selection
+    selectPerson.addEventListener('change', () => {
+        const personId = selectPerson.value;
+        captureBtn.disabled = !personId;
+        uploadBtn.disabled = !personId || !photoUpload.files.length;
+        
+        // Enable/disable person edit/delete buttons
+        editPersonBtn.disabled = !personId;
+        deletePersonBtn.disabled = !personId;
+        quickEditPersonBtn.disabled = !personId;
+        
+        if (personId) {
+            console.log('Person selected, ID:', personId);
+            // Load existing face samples for this person
+            loadPersonSamples(personId);
+            
+            // Ensure person info section is visible
+            setTimeout(() => {
+                const personInfoSection = document.getElementById('personInfo');
+                if (personInfoSection.style.display === 'none') {
+                    console.log('Forcing person info section to display');
+                    personInfoSection.style.display = 'block';
+                }
+            }, 1000); // Small delay to ensure loadPersonSamples has time to execute
+        } else {
+            // Clear samples display
+            clearSamplesDisplay();
+        }
+    });
+    
+    // Quick edit button click handler - uses the same functionality as the main edit button
+    quickEditPersonBtn.addEventListener('click', async () => {
+        const personId = selectPerson.value;
+        if (!personId) {
+            showStatus('Please select a person first', 'warning');
+            return;
+        }
+        
+        try {
+            // Show loading status
+            showStatus('Loading person details...', 'info');
+            
+            // Fetch the latest person details from the server
+            const response = await fetch(`/api/person/${personId}`);
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to load person details');
+            }
+            
+            console.log('Loaded person details for editing:', data);
+            
+            // Populate the edit form with the latest data
+            document.getElementById('editPersonId').value = data.id;
+            document.getElementById('editPersonIdField').value = data.person_id;
+            document.getElementById('editPersonNameField').value = data.name;
+            document.getElementById('editPersonDetailsField').value = data.details || '';
+            
+            // Show the edit modal
+            editPersonModal.show();
+        } catch (err) {
+            console.error('Error loading person details for editing:', err);
+            showStatus(`Error: ${err.message}`, 'danger');
+        }
+    });
+    
+    // Edit person button click handler
+    editPersonBtn.addEventListener('click', async () => {
+        console.log('Edit person button clicked');
+        
+        // Get the person ID directly from the current selection
+        const personId = selectPerson.value;
+        console.log('Current person ID from dropdown:', personId);
+        
+        if (!personId) {
+            showStatus('Please select a person first', 'warning');
+            return;
+        }
+        
+        try {
+            // Show loading status
+            showStatus('Loading person details...', 'info');
+            
+            // Fetch the latest person details from the server
+            console.log(`Fetching person details from /api/person/${personId}`);
+            const response = await fetch(`/api/person/${personId}`);
+            const data = await response.json();
+            
+            console.log('API response:', response.status, data);
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to load person details');
+            }
+            
+            console.log('Loaded person details for editing:', data);
+            
+            // Populate the edit form with the latest data
+            document.getElementById('editPersonId').value = data.id;
+            document.getElementById('editPersonIdField').value = data.person_id;
+            document.getElementById('editPersonNameField').value = data.name;
+            document.getElementById('editPersonDetailsField').value = data.details || '';
+            
+            // Show the edit modal
+            console.log('Showing edit modal');
+            editPersonModal.show();
+        } catch (err) {
+            console.error('Error loading person details for editing:', err);
+            showStatus(`Error: ${err.message}`, 'danger');
+        }
+    });
+    
+    // Delete person button click handler
+    deletePersonBtn.addEventListener('click', () => {
+        const personId = selectPerson.value;
+        if (!personId) return;
+        
+        // Store the person ID to delete
+        personToDelete = personId;
+        
+        // Get the selected person's name
+        const personName = selectPerson.options[selectPerson.selectedIndex].text;
+        document.getElementById('deletePersonName').textContent = personName;
+        
+        // Show confirmation modal
+        deletePersonModal.show();
+    });
+    
+    // Enable/disable upload button based on file selection
+    photoUpload.addEventListener('change', () => {
+        uploadBtn.disabled = !selectPerson.value || !photoUpload.files.length;
+    });
+    
+    // Function to load person samples from the database
+    async function loadPersonSamples(personId) {
+        try {
+            // Show loading indicator
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('capturedImages').style.display = 'none';
+            document.getElementById('personInfo').style.display = 'none';
+            
+            // Fetch samples from the server
+            const response = await fetch(`/api/person_samples/${personId}`);
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Update person info
+                document.getElementById('personName').textContent = data.person.name;
+                document.getElementById('personDetails').textContent = data.person.details || 'No details provided';
+                document.getElementById('sampleCount').textContent = `${data.samples.length} samples`;
+                document.getElementById('personInfo').style.display = 'block';
+                
+                // Clear existing samples
+                const capturedImagesContainer = document.getElementById('capturedImages');
+                capturedImagesContainer.innerHTML = '';
+                
+                // Display samples or show 'no samples' message
+                if (data.samples.length > 0) {
+                    data.samples.forEach(sample => {
+                        // Create a container for the image and controls
+                        const sampleContainer = document.createElement('div');
+                        sampleContainer.className = 'sample-container';
+                        sampleContainer.dataset.sampleId = sample.id;
+                        
+                        // Create the image element
+                        const img = document.createElement('img');
+                        img.src = sample.image;
+                        img.className = 'captured-image';
+                        img.title = `Captured: ${sample.date_captured}`;
+                        sampleContainer.appendChild(img);
+                        
+                        // Create controls overlay
+                        const controls = document.createElement('div');
+                        controls.className = 'sample-controls';
+                        
+                        // Delete button
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'btn btn-sm btn-danger sample-delete-btn';
+                        deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                        deleteBtn.title = 'Delete this sample';
+                        deleteBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            deleteFaceSample(sample.id);
+                        };
+                        controls.appendChild(deleteBtn);
+                        
+                        // Add controls to the container
+                        sampleContainer.appendChild(controls);
+                        
+                        // Add the container to the samples display
+                        capturedImagesContainer.appendChild(sampleContainer);
+                    });
+                } else {
+                    capturedImagesContainer.innerHTML = '<p>No samples available for this person yet.</p>';
+                }
+                
+                capturedImagesContainer.style.display = 'flex';
+            } else {
+                showStatus(`Error: ${data.error}`, 'danger');
+                clearSamplesDisplay();
+            }
+        } catch (err) {
+            showStatus(`Error loading samples: ${err.message}`, 'danger');
+            clearSamplesDisplay();
+        } finally {
+            // Hide loading indicator
+            document.getElementById('loadingIndicator').style.display = 'none';
+            document.getElementById('capturedImages').style.display = 'flex';
+        }
+    }
+    
+    // Function to clear the samples display
+    function clearSamplesDisplay() {
+        document.getElementById('personInfo').style.display = 'none';
+        document.getElementById('capturedImages').innerHTML = '<p id="noSamples">No samples available. Select a person or capture new samples.</p>';
+        document.getElementById('capturedImages').style.display = 'flex';
+    }
+    
+    // Variables for delete confirmation
+    let sampleToDelete = null;
+    let personToDelete = null;
+    
+    // Initialize modals
+    let deleteModal, deletePersonModal, editPersonModal;
+    
+    // Initialize DOM elements
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    const confirmDeletePersonBtn = document.getElementById('confirmDeletePersonBtn');
+    const editPersonBtn = document.getElementById('editPersonBtn');
+    const quickEditPersonBtn = document.getElementById('quickEditPersonBtn');
+    const deletePersonBtn = document.getElementById('deletePersonBtn');
+    const savePersonChangesBtn = document.getElementById('savePersonChangesBtn');
+    
+    // Initialize modals and refresh person list when the page loads
+    window.addEventListener('load', () => {
+        console.log('Initializing modals and refreshing person list...');
+        // Initialize Bootstrap modals
+        try {
+            deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+            deletePersonModal = new bootstrap.Modal(document.getElementById('deletePersonConfirmModal'));
+            editPersonModal = new bootstrap.Modal(document.getElementById('editPersonModal'));
+            console.log('Modals initialized successfully');
+            
+            // Force refresh of person list
+            refreshPersonsList();
+        } catch (error) {
+            console.error('Error initializing modals:', error);
+        }
+    });
+    
+    // Function to handle face sample deletion
+    function deleteFaceSample(sampleId) {
+        // Store the sample ID to delete
+        sampleToDelete = sampleId;
+        
+        // Show confirmation modal
+        deleteModal.show();
+    }
+    
+    // Confirm sample delete button click handler
+    confirmDeleteBtn.addEventListener('click', async () => {
+        if (!sampleToDelete) {
+            deleteModal.hide();
+            return;
+        }
+        
+        try {
+            // Show processing status
+            showStatus('Deleting face sample...', 'info');
+            
+            // Send delete request to server
+            const response = await fetch(`/api/face_sample/${sampleToDelete}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showStatus('Face sample deleted successfully', 'success');
+                
+                // Remove the deleted sample from the UI
+                const sampleContainer = document.querySelector(`.sample-container[data-sample-id="${sampleToDelete}"]`);
+                if (sampleContainer) {
+                    sampleContainer.remove();
+                }
+                
+                // Update sample count
+                const sampleCountElement = document.getElementById('sampleCount');
+                sampleCountElement.textContent = `${data.remaining_count} samples`;
+                
+                // If no samples left, show the no samples message
+                if (data.remaining_count === 0) {
+                    document.getElementById('capturedImages').innerHTML = '<p>No samples available for this person yet.</p>';
+                }
+            } else {
+                showStatus(`Error: ${data.error}`, 'danger');
+            }
+        } catch (err) {
+            showStatus(`Error deleting sample: ${err.message}`, 'danger');
+        } finally {
+            // Hide the modal
+            deleteModal.hide();
+            sampleToDelete = null;
+        }
+    });
+    
+    // Confirm person delete button click handler
+    confirmDeletePersonBtn.addEventListener('click', async () => {
+        if (!personToDelete) {
+            deletePersonModal.hide();
+            return;
+        }
+        
+        try {
+            // Show processing status
+            showStatus('Deleting person and associated samples...', 'info');
+            
+            // Send delete request to server
+            const response = await fetch(`/api/person/${personToDelete}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showStatus(`Person deleted successfully. ${data.samples_deleted} face samples were also deleted.`, 'success');
+                
+                // Clear the samples display
+                clearSamplesDisplay();
+                
+                // Refresh the persons dropdown
+                await refreshPersonsList();
+                
+                // Reset the person selection
+                selectPerson.value = '';
+                captureBtn.disabled = true;
+                uploadBtn.disabled = true;
+            } else {
+                showStatus(`Error: ${data.error}`, 'danger');
+            }
+        } catch (err) {
+            showStatus(`Error deleting person: ${err.message}`, 'danger');
+        } finally {
+            // Hide the modal
+            deletePersonModal.hide();
+            personToDelete = null;
+        }
+    });
+    
+    // Save person changes button click handler
+    savePersonChangesBtn.addEventListener('click', async () => {
+        console.log('Save person changes button clicked');
+        
+        const personId = document.getElementById('editPersonId').value;
+        const personIdField = document.getElementById('editPersonIdField').value;
+        const personName = document.getElementById('editPersonNameField').value;
+        const personDetails = document.getElementById('editPersonDetailsField').value;
+        
+        console.log('Form values:', { personId, personIdField, personName, personDetails });
+        
+        if (!personId || !personIdField || !personName) {
+            showStatus('Person ID and Name are required', 'danger');
+            return;
+        }
+        
+        try {
+            // Show processing status
+            showStatus('Updating person details...', 'info');
+            
+            // Send update request to server
+            console.log(`Sending PUT request to /api/person/${personId}`);
+            const response = await fetch(`/api/person/${personId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    person_id: personIdField,
+                    name: personName,
+                    details: personDetails
+                })
+            });
+            
+            const data = await response.json();
+            console.log('API response:', response.status, data);
+            
+            if (data.success) {
+                // Hide the modal first
+                console.log('Update successful, hiding modal');
+                editPersonModal.hide();
+                
+                showStatus('Person details updated successfully', 'success');
+                
+                // Update the person info display
+                document.getElementById('personName').textContent = data.person.name;
+                document.getElementById('personDetails').textContent = data.person.details || 'No details provided';
+                
+                // Refresh the persons dropdown
+                console.log('Refreshing persons list');
+                await refreshPersonsList();
+                
+                // Re-select the updated person
+                console.log('Re-selecting person:', personId);
+                selectPerson.value = personId;
+                
+                // Refresh the samples display to show updated person info
+                console.log('Reloading person samples');
+                await loadPersonSamples(personId);
+            } else {
+                showStatus(`Error: ${data.error}`, 'danger');
+            }
+        } catch (err) {
+            console.error('Error updating person:', err);
+            showStatus(`Error updating person: ${err.message}`, 'danger');
+        } finally {
+        }
+    });
+
+    // Add new person
+    addPersonBtn.addEventListener('click', async () => {
+        if (!personId.value || !personName.value) {
+            showStatus('Person ID and Name are required', 'danger');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/persons', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    person_id: personId.value,
+                    name: personName.value,
+                    details: personDetails.value
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                showStatus('Person added successfully', 'success');
+                personId.value = '';
+                personName.value = '';
+                personDetails.value = '';
+                refreshPersonsList();
+            } else {
+                showStatus(`Error: ${data.error}`, 'danger');
+            }
+        } catch (err) {
+            showStatus(`Error: ${err.message}`, 'danger');
+        }
+    });
+
+    // Refresh persons dropdown
+    async function refreshPersonsList() {
+        try {
+            console.log('Refreshing persons list...');
+            const response = await fetch('/api/persons');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            
+            console.log('Persons data received:', data);
+            
+            // Clear current options
+            selectPerson.innerHTML = '<option value="">-- Select a person --</option>';
+            
+            // Add new options
+            if (data.persons && data.persons.length > 0) {
+                data.persons.forEach(person => {
+                    const option = document.createElement('option');
+                    option.value = person.id;
+                    option.textContent = `${person.name} (${person.person_id})`;
+                    selectPerson.appendChild(option);
+                    console.log(`Added person option: ${person.name} (${person.person_id}) with ID ${person.id}`);
+                });
+                console.log(`Total ${data.persons.length} persons loaded into dropdown`);
+                showStatus(`Successfully loaded ${data.persons.length} person profiles`, 'success');
+            } else {
+                console.log('No persons found in the database');
+                showStatus('No person profiles found. Please add a new person.', 'info');
+            }
+        } catch (err) {
+            console.error('Error refreshing persons list:', err);
+            showStatus(`Error loading persons: ${err.message}`, 'danger');
+        }
+    }
+
+    // Capture face sample
+    captureBtn.addEventListener('click', async () => {
+        const personId = selectPerson.value;
+        if (!personId) {
+            showStatus('Please select a person first', 'warning');
+            return;
+        }
+
+        // Draw current video frame to canvas
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        
+        // Get image data as base64
+        const imageData = canvas.toDataURL('image/jpeg');
+        
+        try {
+            // Show processing status
+            showStatus('Processing image...', 'info');
+            
+            // Create form data
+            const formData = new FormData();
+            formData.append('person_id', personId);
+            formData.append('image', imageData);
+            
+            // Send to server
+            const response = await fetch('/api/capture', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Get selected person name
+                const personName = selectPerson.options[selectPerson.selectedIndex].text;
+                
+                showStatus(`Face sample for ${personName} captured successfully!`, 'success');
+                
+                // Add captured image with face highlight
+                if (data.face) {
+                    // Create a new image to draw the face highlight
+                    const img = new Image();
+                    img.onload = () => {
+                        const highlightCanvas = document.createElement('canvas');
+                        highlightCanvas.width = img.width;
+                        highlightCanvas.height = img.height;
+                        const ctx = highlightCanvas.getContext('2d');
+                        
+                        // Draw the original image
+                        ctx.drawImage(img, 0, 0);
+                        
+                        // Draw rectangle around the detected face
+                        const { x, y, width, height } = data.face;
+                        ctx.strokeStyle = '#00ff00';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(x, y, width, height);
+                        
+                        // Add the highlighted image
+                        addCapturedImage(highlightCanvas.toDataURL('image/jpeg'));
+                        
+                        // Update person info section
+                        document.getElementById('personInfo').style.display = 'block';
+                    };
+                    img.src = imageData;
+                } else {
+                    // Add the original image if no face data
+                    addCapturedImage(imageData);
+                }
+                
+                // Refresh samples after a short delay to ensure database update is complete
+                setTimeout(() => {
+                    loadPersonSamples(selectPerson.value);
+                }, 1000);
+            } else {
+                showStatus(`Error: ${data.error}`, 'danger');
+            }
+        } catch (err) {
+            showStatus(`Error: ${err.message}`, 'danger');
+        }
+    });
+
+    // Add captured image to the display
+    function addCapturedImage(imageData, sampleId) {
+        // Clear 'no samples' message if it exists
+        const noSamplesElement = document.getElementById('noSamples');
+        if (noSamplesElement) {
+            noSamplesElement.remove();
+        }
+        
+        // Create a container for the image and controls
+        const sampleContainer = document.createElement('div');
+        sampleContainer.className = 'sample-container';
+        if (sampleId) {
+            sampleContainer.dataset.sampleId = sampleId;
+        }
+        
+        // Create the image element
+        const img = document.createElement('img');
+        img.src = imageData;
+        img.className = 'captured-image';
+        img.title = `Captured: ${new Date().toLocaleString()}`;
+        sampleContainer.appendChild(img);
+        
+        // If we have a sample ID, add controls
+        if (sampleId) {
+            // Create controls overlay
+            const controls = document.createElement('div');
+            controls.className = 'sample-controls';
+            
+            // Delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn btn-sm btn-danger sample-delete-btn';
+            deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+            deleteBtn.title = 'Delete this sample';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteFaceSample(sampleId);
+            };
+            controls.appendChild(deleteBtn);
+            
+            // Add controls to the container
+            sampleContainer.appendChild(controls);
+        }
+        
+        // Add to the beginning of the container (newest first)
+        if (capturedImages.firstChild) {
+            capturedImages.insertBefore(sampleContainer, capturedImages.firstChild);
+        } else {
+            capturedImages.appendChild(sampleContainer);
+        }
+        
+        // Update sample count if person info is displayed
+        const sampleCountElement = document.getElementById('sampleCount');
+        if (sampleCountElement && sampleCountElement.style.display !== 'none') {
+            const currentCount = parseInt(sampleCountElement.textContent.split(' ')[0]) || 0;
+            sampleCountElement.textContent = `${currentCount + 1} samples`;
+        }
+    }
+    
+    // Handle photo upload
+    uploadBtn.addEventListener('click', async () => {
+        const personId = selectPerson.value;
+        if (!personId) {
+            showStatus('Please select a person first', 'warning');
+            return;
+        }
+        
+        if (!photoUpload.files.length) {
+            showStatus('Please select a photo to upload', 'warning');
+            return;
+        }
+        
+        try {
+            // Show processing status
+            showStatus('Processing uploaded photo...', 'info');
+            
+            // Create form data
+            const formData = new FormData();
+            formData.append('person_id', personId);
+            formData.append('file', photoUpload.files[0]);
+            
+            // Send to server
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Get selected person name
+                const personName = selectPerson.options[selectPerson.selectedIndex].text;
+                
+                showStatus(`Photo for ${personName} uploaded and processed successfully!`, 'success');
+                
+                // Add the processed image with face highlight
+                if (data.image) {
+                    addCapturedImage(data.image);
+                }
+                
+                // Reset file input
+                photoUpload.value = '';
+                uploadBtn.disabled = true;
+                
+                // Update person info section
+                document.getElementById('personInfo').style.display = 'block';
+                
+                // Refresh samples after a short delay to ensure database update is complete
+                setTimeout(() => {
+                    loadPersonSamples(selectPerson.value);
+                }, 1000);
+            } else {
+                showStatus(`Error: ${data.error}`, 'danger');
+            }
+        } catch (err) {
+            showStatus(`Error: ${err.message}`, 'danger');
+        }
+    });
+
+    // Show status message
+    function showStatus(message, type) {
+        statusAlert.textContent = message;
+        statusAlert.className = `alert alert-${type}`;
+        statusAlert.style.display = 'block';
+        
+        // Hide after 5 seconds
+        setTimeout(() => {
+            statusAlert.style.display = 'none';
+        }, 5000);
+    }
+</script>
+{% endblock %}
